@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+.idea/
+.vscode/
+*.swp
+*.swo
+ui_tree.json
+ui_tree.txt
+私信聚合_UI结构.json
+私信聚合_UI结构.txt
