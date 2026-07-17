@@ -9,25 +9,44 @@
 """
 
 # ============================================================
-#  自动安装依赖
+#  自动安装依赖（使用国内镜像）
 # ============================================================
 import subprocess, sys
 
+# 国内镜像源（按速度排序，可自行切换）
+MIRRORS = [
+    "https://pypi.tuna.tsinghua.edu.cn/simple",   # 清华大学（推荐）
+    "https://mirrors.aliyun.com/pypi/simple",      # 阿里云
+    "https://pypi.douban.com/simple",              # 豆瓣
+]
+
 def ensure_package(import_name, pip_name=None):
-    """确保包已安装，没有就自动装"""
+    """确保包已安装，没有就从镜像自动装"""
     pip_name = pip_name or import_name
     try:
         __import__(import_name)
     except ImportError:
         print(f"  正在安装 {pip_name} ...")
+        # 依次尝试镜像源，直到成功
+        for mirror in MIRRORS:
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", pip_name, "-i", mirror],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+                )
+                print(f"  [OK] {pip_name} (源: {mirror})")
+                return
+            except subprocess.CalledProcessError:
+                continue
+        # 兜底：用默认源
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", pip_name],
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
         )
-        print(f"  [OK] {pip_name}")
+        print(f"  [OK] {pip_name} (源: 默认)")
 
 print("=" * 50)
-print("  检查依赖...")
+print("  检查依赖（国内镜像安装）...")
 print("=" * 50)
 ensure_package("pywinauto")
 print("  所有依赖就绪!\n")
