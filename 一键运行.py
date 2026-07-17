@@ -60,15 +60,50 @@ os.system("chcp 65001 >nul 2>&1")
 
 
 def list_windows():
-    """列出所有可见窗口"""
+    """列出所有可见窗口，返回 [(title, handle), ...]"""
     from pywinauto import Desktop
     desktop = Desktop(backend="uia")
     result = []
     for w in desktop.windows():
         title = w.window_text()
         if title.strip():
-            result.append(title)
+            result.append((title, w.handle))
     return result
+
+
+def select_window():
+    """交互式选择窗口，返回连接好的 win 对象"""
+    from pywinauto import Application
+
+    windows = list_windows()
+    if not windows:
+        print("  [!] 没有找到任何窗口")
+        return None
+
+    print()
+    print(f"  {'序号':<6}窗口标题")
+    print(f"  {'─' * 50}")
+    for i, (title, handle) in enumerate(windows, 1):
+        print(f"  {i:<6}{title}")
+    print(f"  {'─' * 50}")
+
+    choice = input("\n  输入序号选择窗口: ").strip()
+    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(windows):
+        print("  [!] 无效序号")
+        return None
+
+    title, handle = windows[int(choice) - 1]
+    print(f"  正在连接: {title}")
+
+    try:
+        app = Application(backend="uia").connect(handle=handle)
+        win = app.window(handle=handle)
+        win.wait("exists visible", timeout=5)
+        print(f"  [OK] 已连接")
+        return win
+    except Exception as e:
+        print(f"  [!] 连接失败: {e}")
+        return None
 
 
 def connect(title):
@@ -215,41 +250,38 @@ def main():
         print("=" * 50)
         print("  控件树检测 & 自动化工具")
         print("=" * 50)
-        print("  1. 列出所有窗口")
-        print("  2. 连接窗口")
-        print("  3. 打印控件树")
-        print("  4. 搜索控件（按类型）")
-        print("  5. 搜索控件（按标题关键字）")
-        print("  6. 获取列表项并点击")
-        print("  7. 发送消息（输入文字+回车）")
-        print("  8. 导出控件树为 JSON")
+        if win:
+            try:
+                print(f"  当前窗口: {win.window_text()}")
+            except Exception:
+                print(f"  当前窗口: [已断开]")
+                win = None
+        print()
+        print("  1. 选择窗口")
+        print("  2. 打印控件树")
+        print("  3. 搜索控件（按类型）")
+        print("  4. 搜索控件（按标题关键字）")
+        print("  5. 获取列表项并点击")
+        print("  6. 发送消息（输入文字+回车）")
+        print("  7. 导出控件树为 JSON")
         print("  0. 退出")
         print("=" * 50)
 
-        choice = input("\n  选择 [0-8]: ").strip()
+        choice = input("\n  选择 [0-7]: ").strip()
 
         if choice == "1":
-            for t in list_windows():
-                print(f"    {t}")
+            win = select_window()
 
         elif choice == "2":
-            title = input("  窗口标题（部分即可）: ").strip()
-            try:
-                win = connect(title)
-                print(f"  [OK] 已连接: {win.window_text()}")
-            except Exception as e:
-                print(f"  [!] 失败: {e}")
-
-        elif choice == "3":
             if not win:
-                print("  [!] 请先选 2 连接窗口")
+                print("  [!] 请先选 1 选择窗口")
                 continue
             depth = input("  深度 [默认8]: ").strip()
             dump_tree(win, max_depth=int(depth) if depth.isdigit() else 8)
 
-        elif choice == "4":
+        elif choice == "3":
             if not win:
-                print("  [!] 请先选 2 连接窗口")
+                print("  [!] 请先选 1 选择窗口")
                 continue
             print("  类型: Button, Edit, List, ListItem, Text, CheckBox, ComboBox, Tab")
             ct = input("  控件类型: ").strip()
@@ -259,9 +291,9 @@ def main():
                 for i, c in enumerate(results):
                     print(f"    [{i}] \"{c.window_text()}\" id=\"{c.element_info.automation_id}\"")
 
-        elif choice == "5":
+        elif choice == "4":
             if not win:
-                print("  [!] 请先选 2 连接窗口")
+                print("  [!] 请先选 1 选择窗口")
                 continue
             kw = input("  标题关键字: ").strip()
             if kw:
@@ -270,9 +302,9 @@ def main():
                 for i, c in enumerate(results):
                     print(f"    [{i}] type={c.element_info.control_type} title=\"{c.window_text()}\"")
 
-        elif choice == "6":
+        elif choice == "5":
             if not win:
-                print("  [!] 请先选 2 连接窗口")
+                print("  [!] 请先选 1 选择窗口")
                 continue
             items = get_list_items(win)
             print(f"  列表项: {len(items)} 个")
@@ -283,17 +315,17 @@ def main():
                 items[int(idx)].click_input()
                 print(f"  [OK] 已点击第 {idx} 项")
 
-        elif choice == "7":
+        elif choice == "6":
             if not win:
-                print("  [!] 请先选 2 连接窗口")
+                print("  [!] 请先选 1 选择窗口")
                 continue
             text = input("  要发送的文字: ").strip()
             if text:
                 send_msg(win, text)
 
-        elif choice == "8":
+        elif choice == "7":
             if not win:
-                print("  [!] 请先选 2 连接窗口")
+                print("  [!] 请先选 1 选择窗口")
                 continue
             fname = input("  文件名 [默认 ui_tree.json]: ").strip() or "ui_tree.json"
             export_json(win, fname)
